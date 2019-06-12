@@ -35,7 +35,7 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
-/Scrap
+/**/Scrap
 
 ml-10M100K
 
