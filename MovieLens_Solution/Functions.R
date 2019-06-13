@@ -1,9 +1,21 @@
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Author: Ian Gledhill
+# Descrition: This defines a number of functions used to calculate the
+#             different methods.
+#_____________________________________________________________________
 
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Define a function that will calculate the RMSE for two sets.
+#_____________________________________________________________________
 RMSE <- function(true_ratings, predicted_ratings){
   sqrt(mean((true_ratings - predicted_ratings)^2))
 }
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Partitions the supplied data into a test and train data set using the 
+# supplied percentage to the training data set.
+#_____________________________________________________________________
 createTrainAndTestSets <- function(data, trainPercentage){
   test_index <- createDataPartition(y = data$rating,
                                     times = 1,
@@ -21,14 +33,25 @@ createTrainAndTestSets <- function(data, trainPercentage){
   list(train_set = train_set, test_set = test_set)
 }
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Create a data frame from the method name and RMSE result.
+#_____________________________________________________________________
 add_Result <- function(name, rmse){
   data_frame(method=name, RMSE = rmse)  
 }
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean as the predictor.
+#_____________________________________________________________________
 predict_UsingMean <- function(train_set, test_set){
   mu <- mean(train_set$rating)
   RMSE(test_set$rating, mu)
 }
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean and the movie effect as the
+# predictor.
+#_____________________________________________________________________
 
 predict_UsingMovieEffect <- function(train_set, test_set){
   mu <- mean(train_set$rating)
@@ -44,6 +67,9 @@ predict_UsingMovieEffect <- function(train_set, test_set){
   RMSE(test_set$rating, predicted_ratings)
 }
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean as the user effect.
+#_____________________________________________________________________
 
 predict_UsingUserEffect <- function(train_set, test_set){
   mu <- mean(train_set$rating)
@@ -58,6 +84,11 @@ predict_UsingUserEffect <- function(train_set, test_set){
   
   RMSE(test_set$rating, predicted_ratings)
 }
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean and regulated movie and user as 
+# the predictor.
+#_____________________________________________________________________
 
 predict_UsingRegulatedMovieAndUserEFfect <- function(train_set, test_set, lambda) {
   

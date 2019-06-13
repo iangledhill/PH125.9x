@@ -32,15 +32,46 @@ library(broom)
 # Obtain some summary information
 #_____________________________________________________________________
 
-ranked_movies <- group_by(edx, title) %>% 
-  summarize(n = n(), average = mean(rating)) %>%
+# Some movies picked out for the report
+
+movies <- group_by(edx, title) %>% 
+  summarize(n = n(), average = mean(rating))
+
+movies_by_mean <- movies  %>%
+  # remove highly rated outliers
+  filter(n > 20) %>% 
+  arrange(desc(average), desc(n))
+
+best_movie <- movies_by_mean[1,]
+
+worst_movie <- movies_by_mean[nrow(movies_by_mean),]
+
+movies_by_n <- movies  %>%
   arrange(desc(n))
 
-best_movie <- ranked_movies[1,]
+most_movie <- movies_by_n[1,]
 
-worst_movie <- ranked_movies[nrow(ranked_movies),]
+least_movie <- movies_by_n[nrow(movies_by_mean),]
 
-  
+
+# Some users picked out for the report  
+
+users <- group_by(edx, userId) %>% 
+  summarize(n = n(), average = mean(rating))
+
+users_by_mean <- users  %>%
+  arrange(desc(average))
+
+best_user <- users_by_mean[1,]
+
+worst_user <- users_by_mean[nrow(users_by_mean),]
+
+users_by_n <- users  %>%
+  arrange(desc(n))
+
+most_user <- users_by_n[1,]
+
+least_user <- users_by_n[nrow(users_by_n),]
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -53,7 +84,7 @@ rmse_results <- rbind(rmse_results, add_Result("Mean", predict_UsingMean(train_s
 rmse_results <- rbind(rmse_results, add_Result("Movie Effect Model", predict_UsingMovieEffect(train_set, test_set)))
 rmse_results <- rbind(rmse_results, add_Result("User Effect Model", predict_UsingUserEffect(train_set, test_set)))
 
-lambdas <- seq(0,10,5)
+lambdas <- seq(0,10,1)
 
 regulated_rmses <- sapply(lambdas, function(lambda) {
   predict_UsingRegulatedMovieAndUserEFfect(train_set, test_set, lambda)

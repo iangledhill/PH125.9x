@@ -12,7 +12,7 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r, code = source("Solution.R"),  include=FALSE, echo=FALSE}
+```{r main, code = source("Solution.R"), include=FALSE, echo=FALSE}
 ```
 
 ```{r}
@@ -88,7 +88,7 @@ The objective of the project was to find a movie recommendation algorithm. Its s
 The algoritm will start from a naive position and then be refined as further insights into the data are gained. The effect of each refinement will be accessed using a loss function. The RMSE (_residual mean squared error_) will be used as the loss function for this project.
 
 ### Version 1 : Naive Implementation
-The first attemp will use the average movie rating of the training data to predict the rating in the test data. The RMSE will then be measured. The formula for this is described as follows, where u is the user, i is the movie, ${\mu}$ is the average and ${\epsilon}$ is the error.
+The first attempt will use the average movie rating of the training data to predict the rating in the test data. The RMSE will then be measured. The formula for Y (the prediction) is described as follows, where u is the user, i is the movie, ${\mu}$ is the average and ${\epsilon}$ is the error.
 
 $$
 \begin{aligned}
@@ -96,22 +96,53 @@ $$
 \end{aligned}
 $$
 
+The result for this is shown here:
 
-### Version 2 : Coinsider the individual movie effect 
-This modification will use the mean with the addition of a movie effect to take into account that some movies are rated more favourably then others. For example, the top 5 rated movies are:
-
-```{R}
-kable(head(ranked_movies,5), caption="Top 5 Rated Movies")
+```{r movie_mean}
+kable(head(rmse_results,1), caption="Results for method 1")
 ```
 
-The bottom 5 rated movies include:
+### Version 2 : Consider the individual movie effect 
+This modification will use the mean with the addition of a movie effect to take into account that some movies are rated more favourably then others. For example, the top 5 most-rated and top 5 least-rated movies are shown below:
 
-```{R}
-kable(tail(ranked_movies,5), caption="Bottom 5 Rated Movies")
+```{r movie_best_rated}
+kable(head(movies_by_mean,5), caption="Top 5 Movies - Best Rated")
 ```
 
-We can see that some movies are rated very often and have a large number of ratings. For example `r best_movie$title` has `r best_movie$n` whilst `r worst_movie$title` has `r worst_movie$n`. However, note that this does not necessarily mean that the _average_ rating for these movies is low or high. A movie with many ratings does may be rated poor by many users and a movie with only a single rating may be rated highly by that single user.
 
+```{r movie_worst_rated}
+kable(tail(movies_by_mean,5), caption="Top 5 Movies - Worst Rated")
+```
+
+We can see that some movies are rated very highly. For example `r best_movie$title` has an average rating of `r best_movie$average` stars whilst `r worst_movie$title` only has `r worst_movie$average`. The best and worst movies are not necessilly the most and least frequently rated. The top 5 most and least rated are shown below:
+
+
+```{r movie_most_rated}
+kable(head(movies_by_n,5), caption="Top 5 Movies - Most Number of Ratings")
+```
+
+
+```{r movie_least_rated}
+kable(tail(movies_by_n,5), caption="Top 5 Movies - Least Number of Ratings")
+```
+
+We can see that some movies are rated very often. For example `r most_movie$title` has `r most_movie$n` ratings whilst `r least_movie$title` only has `r least_movie$n`. 
+
+If we plot the mean against the number of ratings we can see that the extremeties (1 star and 5 star) are only obtained by movies with a small number of ratings.
+
+```{r movie_extremtities_have_low_numbers, echo=FALSE}
+ggplot(movies, aes(x = average, y = n, size=n, color=n)) +
+  geom_point() +
+  scale_y_continuous(trans='log10') +
+  ggtitle("Average Ratings", subtitle="Extremeties occuiped by small number of ratings") +
+  xlab("Average Rating") +
+  ylab("Number of Ratings") +
+  theme_minimal()
+```
+
+This shows us that movies with small number of ratings may have a distorting effect.
+
+The formula for Y (the prediction) this is described as follows, where u is the user, i is the movie, ${\mu}$ is the average, ${\epsilon}$ is the error and b is the movie effect.
 
 $$
 \begin{aligned}
@@ -119,8 +150,40 @@ $$
 \end{aligned}
 $$
 
-### Version 3
-Use the mean with the addition of a user effect to take into account that some users rate movies more generously then others.
+
+```{r methods_12}
+kable(head(rmse_results,2), caption="Results for method 1 and method 2")
+```
+
+### Version 3 : Consider the individual user effect 
+This is similar to version 2, but instead of looking at the movie effect we're going to look at the user effect; i.e. the fact that some users generally rate movies more generously then others and some users make lots of reviews whilst others make very few.
+
+For example, the top 5 and bottom 5 users based on avarege rating given by that user is shown below:
+
+```{r user_best_ratings}
+kable(head(users_by_mean,5), caption="Top 5 Users - Highest Average Ratings")
+```
+
+
+```{r user_worst_ratings}
+kable(tail(users_by_mean,5), caption="Top 5 Users - Lowest Average Ratings")
+```
+
+As with movies we can see that there is variability in both the ratings given (some users appear to be more generous) and the number of ratings the usersa provide. For example `r best_user$userId` has given average rating of `r best_user$average` stars whilst `r worst_user$userId` has given an average rating of only `r worst_user$average`. This might be because user `r worst_user$id` tends to be make unlucky movie choices and watches poor movies. 
+
+
+```{r user_most_rated}
+kable(head(users_by_n,5), caption="Top 5 Users - Most Number of Ratings Provided")
+```
+
+
+```{r user_least_rated}
+kable(tail(users_by_n,5), caption="Top 5 Users - Least Number of Ratings Provided")
+```
+
+
+The formula for Y (the prediction) is described as follows, where u is the user, i is the movie, ${\mu}$ is the average, ${\epsilon}$ is the error and b is the movie effect.
+
 
 $$
 \begin{aligned}
@@ -128,15 +191,34 @@ $$
 \end{aligned}
 $$
 
+
+```{r methods_123, echo=FALSE}
+kable(head(rmse_results,3), caption="Results for method 1, 2 and 3")
+```
+
 ### Version 4
-Use the mean with the regulated movie and user effect.
+This will use the combination of the movie effect and the user effect together with an adjustment (a _regulator_) to predict a user's rating.
+
+The formula for Y (the prediction) is described as follows, where u is the user, i is the movie, ${\mu}$ is the average, ${\epsilon}$ is the error and b is the movie effect.
 
 $$
 \begin{aligned}
- Y_{u,i} &= \mu + b_i + b_u + \epsilon_{u,i}
+\frac{1}{N} \sum_{u,i} (y_{u,i} - \mu -b_{i})^2 + \lambda \sum_{i} b_{i}^2
 \end{aligned}
 $$
 
+```{r methods, echo=FALSE}
+ggplot(rmse_results, aes(x = method, y = RMSE)) +
+    geom_point() +
+    ggtitle("RMSE", subtitle="Changes ") +
+    xlab("Method") +
+    theme_minimal()
+```
+
+
+```{r methods_1234, echo=FALSE}
+kable(head(rmse_results,4), caption="Results for all 4 methods")
+```
 
 \newpage
 # Results
@@ -150,19 +232,19 @@ ggplot(regulated_data, aes(x = lambdas, y = RMSE)) +
 ```
 
 
-```{r methods, echo=FALSE}
-ggplot(rmse_results, aes(x = method, y = RMSE)) +
-    geom_point() +
-    ggtitle("RMSE", subtitle="Changes ") +
-    xlab("Method") +
-    theme_minimal()
-```
-
 \newpage
 # Conclusion
-```{r pressure2, echo=FALSE}
 
-```
+The best prediction occurs with the mean modified with the regulated movie and user effect. The majority of the improvement over using a simple mean comes when the user and movie effects are used in tandem. Using both is superior to using either by themselves. Also, the effect of the regulator value is not very significant compared to using just the movie and user effect.
+
+Additional analysis that might increase the prediction accuracy (but not carried out by this project):
+
+Are there additional effects which could be investigated:
+1. genre : are some genres generally rated hire?
+2. age : are older films generally rated higher or lower?
+3. genre combinations : are some genre combinations more likely to rated higher or lower?
+
+
 
 \newpage
 # Bibliography and References
