@@ -6,12 +6,180 @@
 set.seed(2039)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Include supplemntar scripts for extreacting the 10% sample and 
-# for defining addiitonal functions used by this script.
+# Begin Setup Code
+#=====================================================================
+# Code from https://www.edx.org/course/data-science-capstone
+#
+# This takes a random 10% sample of the full 10M reviews and saves them in a 
+# data.frame called edx. 
 #
 #_____________________________________________________________________
-source("Setup.R")
-source("Functions.R")
+
+###################################
+# Create edx set and validation set
+###################################
+
+# Note: this process could take a couple of minutes
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+
+# MovieLens 10M dataset:
+# https://grouplens.org/datasets/movielens/10m/
+# http://files.grouplens.org/datasets/movielens/ml-10m.zip
+
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+
+ratings <- read.table(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
+                      col.names = c("userId", "movieId", "rating", "timestamp"))
+
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+colnames(movies) <- c("movieId", "title", "genres")
+movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
+                                           title = as.character(title),
+                                           genres = as.character(genres))
+
+movielens <- left_join(ratings, movies, by = "movieId")
+
+# Validation set will be 10% of MovieLens data
+set.seed(1) # if using R 3.6.0: set.seed(1, sample.kind = "Rounding")
+test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
+edx <- movielens[-test_index,]
+temp <- movielens[test_index,]
+
+# Make sure userId and movieId in validation set are also in edx set
+validation <- temp %>% 
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+# Add rows removed from validation set back into edx set
+removed <- anti_join(temp, validation)
+edx <- rbind(edx, removed)
+
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# End Setup Code
+#_____________________________________________________________________
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Begin Supplemntary Functions
+#=====================================================================
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Define a function that will calculate the RMSE for two sets.
+#_____________________________________________________________________
+RMSE <- function(true_ratings, predicted_ratings){
+  sqrt(mean((true_ratings - predicted_ratings)^2))
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Partitions the supplied data into a test and train data set using the 
+# supplied percentage to the training data set.
+#_____________________________________________________________________
+createTrainAndTestSets <- function(data, trainPercentage){
+  test_index <- createDataPartition(y = data$rating,
+                                    times = 1,
+                                    p = 1 - trainPercentage,
+                                    list = FALSE)
+  
+  train_set <- data[-test_index,]
+  
+  test_set <- data[test_index,]
+  
+  test_set <- test_set %>%
+    semi_join(train_set, by = "movieId") %>%
+    semi_join(train_set, by = "userId")
+  
+  list(train_set = train_set, test_set = test_set)
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Create a data frame from the method name and RMSE result.
+#_____________________________________________________________________
+add_Result <- function(name, rmse){
+  data_frame(method=name, RMSE = rmse)  
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean as the predictor.
+#_____________________________________________________________________
+predict_UsingMean <- function(train_set, test_set){
+  mu <- mean(train_set$rating)
+  RMSE(test_set$rating, mu)
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean and the movie effect as the
+# predictor.
+#_____________________________________________________________________
+
+predict_UsingMovieEffect <- function(train_set, test_set){
+  mu <- mean(train_set$rating)
+  
+  movie_avgs <- train_set %>% 
+    group_by(movieId) %>% 
+    summarize(b_i = mean(rating - mu))
+  
+  predicted_ratings <- mu + test_set %>% 
+    left_join(movie_avgs, by='movieId') %>% 
+    .$b_i
+  
+  RMSE(test_set$rating, predicted_ratings)
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean as the user effect.
+#_____________________________________________________________________
+
+predict_UsingUserEffect <- function(train_set, test_set){
+  mu <- mean(train_set$rating)
+  
+  user_avgs <- train_set %>% 
+    group_by(userId) %>% 
+    summarize(b_u = mean(rating - mu))
+  
+  predicted_ratings <- mu + test_set %>% 
+    left_join(user_avgs, by='userId') %>% 
+    .$b_u
+  
+  RMSE(test_set$rating, predicted_ratings)
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Calculate the RMSE using the mean and regulated movie and user as 
+# the predictor.
+#_____________________________________________________________________
+
+predict_UsingRegulatedMovieAndUserEFfect <- function(train_set, test_set, lambda) {
+  
+  # Average rating of all movies
+  mu <- mean(train_set$rating)
+  
+  # Regularized movie effect
+  b_i <- train_set %>% 
+    group_by(movieId) %>%
+    summarize(b_i = sum(rating - mu) / (n() + lambda))
+  
+  # Regularized user effect
+  b_u <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    group_by(userId) %>%
+    summarize(b_u = sum(rating - b_i - mu) / (n() + lambda))
+  
+  predicted_ratings <- test_set %>% 
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    mutate(pred = mu + b_i + b_u) %>%
+    pull(pred)
+  
+  RMSE(test_set$rating, predicted_ratings)
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# End Supplemntary Code
+#_____________________________________________________________________
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Create a training and test data set
